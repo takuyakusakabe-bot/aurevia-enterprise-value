@@ -428,6 +428,119 @@
 }
 </style>
 
+
+<style>
+/* Mobile refinement — valuation comparison gets breathing room */
+@media (max-width:760px){
+  .value-target-card{
+    overflow:visible;
+  }
+
+  .value-compare-grid{
+    grid-template-columns:1fr !important;
+    gap:18px !important;
+  }
+
+  .value-compare-grid > div{
+    min-width:0;
+  }
+
+  .value-compare-grid > div:first-child,
+  .value-compare-grid > div:last-child{
+    padding:14px 12px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:#fff;
+  }
+
+  .value-compare-arrow{
+    padding-top:0 !important;
+    gap:3px !important;
+    min-height:auto !important;
+  }
+  .value-compare-arrow span:first-child{
+    transform:rotate(90deg);
+    font-size:24px !important;
+    line-height:1;
+  }
+
+  /* Keep the headline amount and comparison readable, not crushed */
+  .value-compare-grid > div:first-child > div:first-child,
+  .value-compare-grid > div:last-child > div:first-child{
+    gap:16px !important;
+    align-items:flex-start !important;
+  }
+
+  .value-compare-grid > div:first-child > div:first-child > div:first-child,
+  .value-compare-grid > div:last-child > div:first-child > div:first-child{
+    flex:1 1 auto;
+    min-width:0;
+  }
+
+  .value-compare-grid > div:first-child > div:first-child > div:last-child,
+  .value-compare-grid > div:last-child > div:first-child > div:last-child{
+    flex:0 0 118px;
+    min-width:0;
+  }
+
+  /* Override desktop inline headline sizes */
+  .value-compare-grid > div:first-child > div:first-child > div:first-child p:nth-child(2){
+    font-size:34px !important;
+    line-height:1.1 !important;
+    overflow-wrap:normal !important;
+    word-break:keep-all;
+  }
+  .value-compare-grid > div:last-child > div:first-child > div:first-child p:nth-child(2){
+    font-size:30px !important;
+    line-height:1.1 !important;
+    overflow-wrap:normal !important;
+    word-break:keep-all;
+  }
+
+  .value-compare-grid > div:first-child > div:first-child > div:last-child p:nth-child(2),
+  .value-compare-grid > div:last-child > div:first-child > div:last-child p:nth-child(2){
+    font-size:16px !important;
+    line-height:1.35 !important;
+  }
+
+  .value-method-grid{
+    grid-template-columns:1fr !important;
+    gap:12px !important;
+    margin-top:18px !important;
+    padding-top:18px !important;
+  }
+
+  .value-method-grid > div{
+    padding:12px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .value-method-grid > div:last-child{
+    border-bottom:none;
+  }
+}
+
+@media (max-width:430px){
+  .value-compare-grid > div:first-child > div:first-child,
+  .value-compare-grid > div:last-child > div:first-child{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) 108px;
+    gap:12px !important;
+  }
+
+  .value-compare-grid > div:first-child > div:first-child > div:last-child,
+  .value-compare-grid > div:last-child > div:first-child > div:last-child{
+    width:108px;
+  }
+
+  .value-compare-grid > div:first-child > div:first-child > div:first-child p:nth-child(2){
+    font-size:31px !important;
+  }
+  .value-compare-grid > div:last-child > div:first-child > div:first-child p:nth-child(2){
+    font-size:27px !important;
+  }
+}
+</style>
+
 </head>
 <body>
 
@@ -1088,9 +1201,9 @@ function renderCompass(){
       </div>
     </div>
 
-    <div class="card">
+    <div class="card value-target-card">
       <h2>📍 現時点価値と目標価値</h2>
-      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:32px;align-items:flex-start">
+      <div class="value-compare-grid" style="display:grid;grid-template-columns:1fr auto 1fr;gap:32px;align-items:flex-start">
         <div>
           <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline">
             <div>
@@ -1110,7 +1223,7 @@ function renderCompass(){
             <p style="margin:0"><strong>売上成長率：</strong> ${pct(k.growth)} (YoY)</p>
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding-top:40px">
+        <div class="value-compare-arrow" style="display:flex;flex-direction:column;align-items:center;gap:12px;padding-top:40px">
           <span style="font-size:28px">→</span>
           <span style="font-size:12px;color:var(--gray);font-weight:500">進路中</span>
         </div>
@@ -1133,7 +1246,7 @@ function renderCompass(){
           </div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:24px;padding-top:24px;border-top:1px solid var(--line)">
+      <div class="value-method-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:24px;padding-top:24px;border-top:1px solid var(--line)">
         ${valMini("純資産法",v.book.now,v.i===0&&!v.roundAdopted&&!v.ipoAdopted,"")}
         ${valMini("EBITDA評価"+(v.refIsNext?"（参考）":""),v.evNowDisp,v.i>=1&&!v.roundAdopted&&!v.ipoAdopted,v.refIsNext?("参考：Stage"+(v.refStageIdx+1)+" "+STAGE_DEFS[v.refStageIdx].name+" × "+mult(v.refM)+" ±NC"):("× "+mult(v.M)+" ±NC"))}
         ${valMini("類似PER評価（IPO）",v.perValue>0?v.perValue:null,v.ipoAdopted,v.ipoAchieved?("PER "+v.perNow.toFixed(1)+"倍 × 当期純利益"):("IPO達成時に採用／PER "+v.perNow.toFixed(1)+"倍"))}
