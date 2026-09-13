@@ -698,13 +698,40 @@ function closingBS(rows,monthNo){const rr=rowsFor(rows,'bs','actual',monthNo),eq
 function maxActualMonth(rows,statement){const m=rows.filter(r=>r.statement_type===statement&&r.data_type==='actual'&&Number(r.fiscal_month_no)>=1).map(r=>Number(r.fiscal_month_no));return m.length?Math.max(...m):0;}
 function periodEndLabel(p,monthNo){if(!p||monthNo<1)return '';const idx=(Number(p.start_month)-1)+(monthNo-1),y=Number(p.start_year)+Math.floor(idx/12),m=(idx%12)+1;return `${y}年${m}月末`;}
 function blankMetrics(){return {sales:{a:null,b:0,p:0},gross:{a:null,b:0,p:0},op:{a:null,b:0,p:0},ebitda:{a:null,b:0,p:0},net:{a:null,b:0,p:0}};}
+
+function commonCurrentPeriod(){
+  return commonDb&&commonDb.currentPeriod?commonDb.currentPeriod:null;
+}
+function commonStartMonth(){
+  const p=commonCurrentPeriod();
+  return p?Number(p.start_month):null;
+}
+function commonBaseYear(){
+  const p=commonCurrentPeriod();
+  return p?Number(p.start_year):null;
+}
+function commonAsOfLabel(){
+  const p=commonCurrentPeriod();
+  if(!p)return '';
+  const actualMonths=(commonDb.currentRows||[])
+    .filter(r=>r.data_type==='actual'&&Number(r.fiscal_month_no)>=1&&Number(r.fiscal_month_no)<=12)
+    .map(r=>Number(r.fiscal_month_no));
+  if(!actualMonths.length)return `${p.start_year}/${String(p.start_month).padStart(2,'0')}（実績未登録）`;
+  const fm=Math.max(...actualMonths);
+  return periodEndLabel(p,fm);
+}
+function commonPeriodLabel(){
+  const p=commonCurrentPeriod();
+  if(!p)return '共通DB会計期間：未設定';
+  return `共通DB会計期間：${p.start_year}/${String(p.start_month).padStart(2,'0')}〜${p.end_year}/${String(p.end_month).padStart(2,'0')}`;
+}
 function applyCommonDbToState(){
   const p=commonDb.currentPeriod;
   if(!p)throw new Error('共通DBに現在の会計期間が設定されていません。経営管理 ＞ 共通データで会計期間を設定してください。');
 
   state.company=(availableCompanies.find(c=>c.id===currentCompanyId)||{}).name||state.company;
-  state.fiscalStart=Number(p.start_month);
-  state.baseYear=Number(p.start_year);
+  state.fiscalStart=commonStartMonth();
+  state.baseYear=commonBaseYear();
 
   const months=Array.from({length:12},()=>blankMetrics());
   for(let fm=1;fm<=12;fm++){
@@ -741,10 +768,16 @@ function applyCommonDbToState(){
   state.debtCfg.inventory=bsNow.inventory;
   state.debtCfg.totalAssets=bsNow.totalAssets;
 
-  state.asOf=curMonth?periodEndLabel(p,curMonth):`${p.start_year}/${String(p.start_month).padStart(2,'0')}（実績未登録）`;
-  state._commonPeriodLabel=`${p.start_year}/${String(p.start_month).padStart(2,'0')}〜${p.end_year}/${String(p.end_month).padStart(2,'0')}`;
+  state.asOf=commonAsOfLabel();
+  state._commonPeriodLabel=commonPeriodLabel();
 }
-async function loadCompanyData(companyId){cloudLoading=true;cloudReady=false;currentCompanyId=companyId;if(currentRole!=='admin')currentRole=companyRoles[companyId]||'viewer';setCloudStatus('読込中…','warn');try{const company=availableCompanies.find(c=>c.id===companyId)||(await sbClient.from('companies').select('id,name').eq('id',companyId).single()).data;const q=await sbClient.from('valuation_data').select('data,updated_at').eq('company_id',companyId).maybeSingle();if(q.error)throw q.error;state=migrate(Object.assign(defaultState(),q.data?.data||{}));state.company=company?.name||state.company;lastSavedAt=q.data?.updated_at||null;await loadCommonDb();applyCommonDbToState();hideLogin();renderCompanySwitcher();renderAll();cloudLoading=false;cloudReady=true;setCloudStatus(q.data?savedLabel():'未保存','ok');}catch(err){console.error(err);cloudLoading=false;cloudReady=false;showLogin();showAuthError(err.message||String(err));setCloudStatus('読込エラー','err');}}
+async function loadCompanyData(companyId){cloudLoading=true;cloudReady=false;currentCompanyId=companyId;if(currentRole!=='admin')currentRole=companyRoles[companyId]||'viewer';setCloudStatus('読込中…','warn');try{const company=availableCompanies.find(c=>c.id===companyId)||(await sbClient.from('companies').select('id,name').eq('id',companyId).single()).data;const q=await sbClient.from('valuation_data').select('data,updated_at').eq('company_id',companyId).maybeSingle();if(q.error)throw q.error;state=migrate(Object.assign(defaultState(),q.data?.data||{}));state.company=company?.name||state.company;lastSavedAt=q.data?.updated_at||null;await loadCommonDb();applyCommonDbToState();
+if(commonDb.currentPeriod){
+  state.fiscalStart=Number(commonDb.currentPeriod.start_month);
+  state.baseYear=Number(commonDb.currentPeriod.start_year);
+  state.asOf=commonAsOfLabel();
+}
+hideLogin();renderCompanySwitcher();renderAll();cloudLoading=false;cloudReady=true;setCloudStatus(q.data?savedLabel():'未保存','ok');}catch(err){console.error(err);cloudLoading=false;cloudReady=false;showLogin();showAuthError(err.message||String(err));setCloudStatus('読込エラー','err');}}
 async function loadCloudData(user){currentUser=user;setCloudStatus('読込中…','warn');try{const {data:memberships,error}=await sbClient.from('company_users').select('company_id,role').eq('user_id',user.id);if(error)throw error;if(!memberships?.length)throw new Error('このユーザーに利用会社が設定されていません。');companyRoles=Object.fromEntries(memberships.map(m=>[m.company_id,m.role]));currentRole=memberships.some(m=>m.role==='admin')?'admin':memberships[0].role;if(currentRole==='admin'){const {data,error}=await sbClient.from('companies').select('id,name').order('name');if(error)throw error;availableCompanies=data||[];}else{const ids=memberships.map(m=>m.company_id);const {data,error}=await sbClient.from('companies').select('id,name').in('id',ids).order('name');if(error)throw error;availableCompanies=data||[];}await loadCompanyData(memberships[0].company_id);}catch(err){console.error(err);showLogin();showAuthError(err.message||String(err));setCloudStatus('読込エラー','err');}}
 async function switchCompany(companyId){if(!companyId||companyId===currentCompanyId)return;if(cloudReady&&canEditCurrent())await saveCloudNow(false);await loadCompanyData(companyId);}window.switchCompany=switchCompany;
 window.logoutCloud=async()=>{cloudReady=false;currentCompanyId=null;currentUser=null;availableCompanies=[];companyRoles={};await sbClient.auth.signOut();showLogin();showAuthError('');};
@@ -903,8 +936,8 @@ function defaultStages(){
 function defaultState(){
   return {
     company:"ACME SaaS",
-    asOf:"2024年12月末",
-    fiscalStart:9,
+    asOf:"",
+    fiscalStart:null,
     baseYear:new Date().getFullYear(),   // 当期(進行)の基準年度（西暦）
     targetStageIdx:3,
     prevStageIdx:2,          // 前期末時点のステージ（グロース）
@@ -2769,7 +2802,7 @@ function setHeader(){
     if(state.profile&&state.profile.logo) el.innerHTML='<img src="'+state.profile.logo+'" alt="'+esc(state.company||'')+'" style="max-height:44px;max-width:220px;object-fit:contain">';
     else el.textContent=state.company||"";
   }
-  const a=$("hdrAsOf"); if(a)a.textContent="更新："+(state.asOf||"");
+  const a=$("hdrAsOf"); if(a)a.textContent="更新："+(commonAsOfLabel()||state.asOf||"");
 }
 function setProfile(key,v){if(!state.profile)state.profile={};state.profile[key]=v;commit(false);}
 function onLogo(ev){const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{if(!state.profile)state.profile={};state.profile.logo=r.result;commit(false);};r.readAsDataURL(f);ev.target.value="";}
@@ -3424,7 +3457,7 @@ function renderInput(){
     <p class="hint no-print" style="font-size:12px;color:var(--gray);margin:-12px 0 20px 2px">金額の入力はすべて<strong>円単位</strong>、画面表示は<strong>千円単位</strong>です。</p>
 
     <div class="form-section">
-      <h3>基本情報・会社概要</h3>
+      <h3>基本情報・会社概要</h3><div class="hint" style="margin:0 0 14px;color:#8b6b2f;font-weight:700">${esc(commonPeriodLabel())} ／ build EV-v5</div>
       <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
         <div style="width:160px;height:70px;border:1px dashed var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff">
           ${(state.profile&&state.profile.logo)?`<img src="${state.profile.logo}" style="max-height:60px;max-width:150px;object-fit:contain">`:'<span style="font-size:11px;color:var(--gray)">ロゴ未登録</span>'}
@@ -3444,9 +3477,9 @@ function renderInput(){
         <div class="field" style="grid-column:span 2"><label>事業内容</label><input value="${esc((state.profile||{}).business||'')}" onchange="setProfile('business',this.value)"></div>
       </div>
       <div class="grid3" style="margin-top:4px">
-        <div class="field"><label>更新時点（共通DB）</label><input class="shared-readonly" value="${esc(state.asOf)}" disabled></div>
-        <div class="field"><label>期首月（共通DB）</label><input class="shared-readonly" value="${state.fiscalStart}月" disabled></div>
-        <div class="field"><label>当期の基準年度（共通DB）</label><input class="shared-readonly" value="${num(state.baseYear)||''}" disabled></div>
+        <div class="field"><label>更新時点（共通DB）</label><input class="shared-readonly" value="${esc(commonAsOfLabel())}" disabled></div>
+        <div class="field"><label>期首月（共通DB）</label><input class="shared-readonly" value="${commonStartMonth()?commonStartMonth()+'月':'未設定'}" disabled></div>
+        <div class="field"><label>当期の基準年度（共通DB）</label><input class="shared-readonly" value="${commonBaseYear()||'未設定'}" disabled></div>
         ${selectField("前期末時点ステージ","prevStageIdx",STAGE_DEFS.map((d,i)=>[i,"Stage"+(i+1)+"："+d.name]),true,true)}
         ${selectField("目標ステージ","targetStageIdx",STAGE_DEFS.map((d,i)=>[i,"Stage"+(i+1)+"："+d.name]),true,true)}
         ${field("目標企業価値（円）","targetValue","number")}
@@ -3710,9 +3743,14 @@ function commit(rerenderInput){
   flashSaved();
 }
 function setVal(key,v){
+  if(key==="fiscalStart"||key==="baseYear"||key==="asOf"){
+    applyCommonDbToState();
+    renderInput();
+    return;
+  }
   state[key]=v;
   commit(false);
-  if(["hasBizPlan","targetStageIdx","fiscalStart","baseYear"].includes(key))renderInput();
+  if(["hasBizPlan","targetStageIdx"].includes(key))renderInput();
 }
 function setToday(){
   const d=new Date();
