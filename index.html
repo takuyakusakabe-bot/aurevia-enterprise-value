@@ -3722,8 +3722,13 @@ function exportJSON(){
 function importJSON(ev){
   const f=ev.target.files[0];if(!f)return;
   const r=new FileReader();
-  r.onload=()=>{try{state=migrate(Object.assign(defaultState(),JSON.parse(r.result)));commit(true);alert("保存データを読み込みました。");}
-    catch(e){alert("ファイルの読み込みに失敗しました。");}};
+  r.onload=()=>{try{
+      state=migrate(Object.assign(defaultState(),JSON.parse(r.result)));
+      // 会社名・期首月・基準年度・更新時点はJSONではなく共通DBを正本とする
+      applyCommonDbToState();
+      commit(true);
+      alert("保存データを読み込みました。会社名・会計期間は共通DBの情報を優先しています。");
+    }catch(e){alert("ファイルの読み込みに失敗しました。");}};
   r.readAsText(f);ev.target.value="";
 }
 function resetState(){
