@@ -610,9 +610,22 @@
 "use strict";
 
 /* ===== AureVia Portal / Supabase / Shared Financial DB ===== */
-const SUPABASE_URL='https://tjonqrdjgxkbhmuabgaj.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_ciJLlJDqb6DlEy-3bZqI-w_XAvnfgu7';
-const sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const IS_DEV =
+  location.hostname === 'localhost' ||
+  location.hostname === '127.0.0.1';
+
+const SUPABASE_URL = IS_DEV
+  ? 'https://eejoswuekmlnbcijvfex.supabase.co'
+  : 'https://tjonqrdjgxkbhmuabgaj.supabase.co';
+
+const SUPABASE_PUBLISHABLE_KEY = IS_DEV
+  ? 'sb_publishable_V00Z48U9BPLunrK6GAOZfA_1X2t8jxe'
+  : 'sb_publishable_ciJLlJDqb6DlEy-3bZqI-w_XAvnfgu7';
+
+const sbClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+);
 let cloudReady=false,cloudLoading=false,cloudSaveTimer=null,currentCompanyId=null,currentUser=null,currentRole='viewer',availableCompanies=[],companyRoles={},lastSavedAt=null;
 let commonDb={periods:[],currentPeriod:null,previousPeriod:null,accounts:[],currentRows:[],previousRows:[]};
 function canEditCurrent(){return ['admin','client_admin','editor'].includes(currentRole);}
